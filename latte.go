@@ -12,48 +12,42 @@ import (
 )
 
 type Env struct {
-	Functions map[Symbol]func([]any) any
-	Variables map[Symbol]any
-	Parent    *Env
-}
-
-func (env *Env) FindSymbol(symbol Symbol) (any, bool) {
-	if variable, ok := env.Variables[symbol]; ok {
-		return variable, ok
-	}
-	if env.Parent != nil {
-		return env.Parent.FindSymbol(symbol)
-	}
-	return nil, false
-}
-
-func (env *Env) DefineVariable(name Symbol, value any) {
-	env.Variables[name] = value
-}
-
-func (env *Env) ChildScope() *Env {
-	return &Env{
-		Functions: env.Functions,
-		Variables: make(map[Symbol]any),
-		Parent:    env,
-	}
+	functions map[symbol]func([]any) any
+	variables map[symbol]any
+	parent    *Env
 }
 
 func NewEnv() *Env {
 	return &Env{
-		Functions: maps.Clone(stdlibFunctions),
-		Variables: maps.Clone(stdlibVariables),
-		Parent:    nil,
+		functions: maps.Clone(stdlibFunctions),
+		variables: maps.Clone(stdlibVariables),
+		parent:    nil,
 	}
 }
 
-var stdlibVariables = map[Symbol]any{
+func (env *Env) Eval(source string) any {
+	var result any
+	for _, ast := range parseProgram(tokenize(source)) {
+		result = eval(ast, env)
+	}
+	return result
+}
+
+func (env *Env) Define(name string, value any) {
+	env.defineVariable(symbol(name), value)
+}
+
+func (env *Env) RegisterFunction(name string, fn func([]any) any) {
+	env.functions[symbol(name)] = fn
+}
+
+var stdlibVariables = map[symbol]any{
 	"true":  true,
 	"false": false,
 	"nil":   nil,
 }
 
-var stdlibFunctions = map[Symbol]func(args []any) any{
+var stdlibFunctions = map[symbol]func(args []any) any{
 	"+": func(args []any) any {
 		return arithmeticOperation(
 			args,
@@ -237,7 +231,7 @@ func arithmeticOperation(args []any, op func(float64, float64) float64) float64 
 	return total
 }
 
-type Symbol string
+type symbol string
 
 func tokenize(source string) []string {
 	tokens := []string{}
@@ -327,7 +321,7 @@ func parseExpr(tokens []string, pos *int) any {
 
 	switch token {
 	case "'":
-		return []any{Symbol("quote"), parseExpr(tokens, pos)}
+		return []any{symbol("quote"), parseExpr(tokens, pos)}
 	case "(":
 		tree := []any{}
 		for {
@@ -356,13 +350,35 @@ func parseAtom(token string) any {
 			return value
 		}
 	}
-	return Symbol(token)
+	return symbol(token)
+}
+
+func (env *Env) findSymbol(symbol symbol) (any, bool) {
+	if variable, ok := env.variables[symbol]; ok {
+		return variable, ok
+	}
+	if env.parent != nil {
+		return env.parent.findSymbol(symbol)
+	}
+	return nil, false
+}
+
+func (env *Env) defineVariable(name symbol, value any) {
+	env.variables[name] = value
+}
+
+func (env *Env) childScope() *Env {
+	return &Env{
+		functions: env.functions,
+		variables: make(map[symbol]any),
+		parent:    env,
+	}
 }
 
 func eval(node any, env *Env) any {
 	switch node := node.(type) {
-	case Symbol:
-		value, ok := env.FindSymbol(node)
+	case symbol:
+		value, ok := env.findSymbol(node)
 		if !ok {
 			panic("unknown symbol: " + string(node))
 		}
@@ -374,10 +390,10 @@ func eval(node any, env *Env) any {
 			return nil
 		}
 
-		symbol := node[0].(Symbol)
+		operator := node[0].(symbol)
 
 		// special functions
-		switch symbol {
+		switch operator {
 		case "let", "let*":
 			if len(node) == 1 {
 				return nil
@@ -387,21 +403,21 @@ func eval(node any, env *Env) any {
 				panic("let expression expected bindings at position 2")
 			}
 
-			scope := env.ChildScope()
+			scope := env.childScope()
 			for _, binding := range bindings {
 				binding, ok := binding.([]any)
 				if !ok || len(binding) != 2 {
 					panic("let expression invalid binding")
 				}
-				name, ok := binding[0].(Symbol)
+				name, ok := binding[0].(symbol)
 				if !ok {
 					panic("let binding is not a symbol: " + fmt.Sprint(binding[0]))
 				}
 
-				if string(symbol) == "let" {
-					scope.DefineVariable(name, eval(binding[1], env))
+				if string(operator) == "let" {
+					scope.defineVariable(name, eval(binding[1], env))
 				} else {
-					scope.DefineVariable(name, eval(binding[1], scope))
+					scope.defineVariable(name, eval(binding[1], scope))
 				}
 			}
 
@@ -419,21 +435,21 @@ func eval(node any, env *Env) any {
 			if len(node) != 3 {
 				panic("define expects exactly 2 arguments")
 			}
-			name, ok := node[1].(Symbol)
+			name, ok := node[1].(symbol)
 			if !ok {
 				panic("define argument 1 must be a symbol")
 			}
 			value := eval(node[2], env)
-			env.DefineVariable(name, value)
+			env.defineVariable(name, value)
 			return value
 
 		case "when", "unless":
 			if len(node) < 2 {
-				panic(string(symbol) + " needs a condition")
+				panic(string(operator) + " needs a condition")
 			}
 
 			cond := eval(node[1], env)
-			if isTruthy(cond) == (string(symbol) == "unless") {
+			if isTruthy(cond) == (string(operator) == "unless") {
 				return nil
 			}
 
@@ -480,9 +496,9 @@ func eval(node any, env *Env) any {
 			return cloneValue(node[1])
 		}
 
-		function, ok := env.Functions[symbol]
+		function, ok := env.functions[operator]
 		if !ok {
-			panic("unknown function " + string(symbol))
+			panic("unknown function " + string(operator))
 		}
 
 		args := []any{}
@@ -499,15 +515,6 @@ func eval(node any, env *Env) any {
 
 	return nil
 }
-
-func EvalProgram(source string, env *Env) any {
-	var result any
-	for _, ast := range parseProgram(tokenize(source)) {
-		result = eval(ast, env)
-	}
-	return result
-}
-
 func isTruthy(val any) bool {
 	if val == nil || isEmptyList(val) {
 		return false
@@ -522,7 +529,7 @@ func isEmptyList(val any) bool {
 
 func cloneValue(val any) any {
 	switch val := val.(type) {
-	case Symbol:
+	case symbol:
 		if val == "nil" {
 			return nil
 		}

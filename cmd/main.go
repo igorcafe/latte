@@ -19,7 +19,7 @@ func main() {
 				log.Printf("error reading file '%s': %v", path, err)
 				continue
 			}
-			latte.EvalProgram(string(b), env)
+			env.Eval(string(b))
 		}
 		return
 	}
@@ -40,7 +40,7 @@ func main() {
 				os.Exit(1)
 			}
 
-			val := latte.EvalProgram(line, env)
+			val := env.Eval(line)
 			fmt.Println("$", val)
 		}()
 	}

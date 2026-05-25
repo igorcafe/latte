@@ -2,33 +2,12 @@ package latte
 
 import (
 	"fmt"
-	"maps"
 	"reflect"
 	"slices"
 	"testing"
 )
 
 func TestLatte(t *testing.T) {
-	functions := maps.Clone(stdlibFunctions)
-	functions["hey"] = func(args []any) any {
-		if len(args) >= 1 {
-			return args[0]
-		}
-		return "ho!"
-	}
-	functions["message"] = func(args []any) any {
-		if len(args) == 0 {
-			return nil
-		}
-		if len(args) == 1 {
-			return args[0]
-		}
-		return fmt.Sprintf(args[0].(string), args[1:]...)
-	}
-
-	variables := maps.Clone(stdlibVariables)
-	variables["ho"] = "I'm ho!"
-
 	tests := []struct {
 		source     string
 		wantTokens []string
@@ -38,19 +17,19 @@ func TestLatte(t *testing.T) {
 		{
 			source:     "true",
 			wantTokens: []string{"true"},
-			wantAST:    Symbol("true"),
+			wantAST:    symbol("true"),
 			wantEval:   true,
 		},
 		{
 			source:     "\n\n\t  true \n\n\t",
 			wantTokens: []string{"true"},
-			wantAST:    Symbol("true"),
+			wantAST:    symbol("true"),
 			wantEval:   true,
 		},
 		{
 			source:     "nil",
 			wantTokens: []string{"nil"},
-			wantAST:    Symbol("nil"),
+			wantAST:    symbol("nil"),
 			wantEval:   nil,
 		},
 		{
@@ -79,77 +58,74 @@ func TestLatte(t *testing.T) {
 		{
 			source:     `(hey)`,
 			wantTokens: []string{"(", "hey", ")"},
-			wantAST:    []any{Symbol("hey")},
+			wantAST:    []any{symbol("hey")},
 			wantEval:   "ho!",
 		},
 		{
 			source:     `(hey ho)`,
 			wantTokens: []string{"(", "hey", "ho", ")"},
-			wantAST:    []any{Symbol("hey"), Symbol("ho")},
+			wantAST:    []any{symbol("hey"), symbol("ho")},
 			wantEval:   "I'm ho!",
 		},
 		{
 			source:     `(message "hello!")`,
 			wantTokens: []string{"(", "message", `"hello!"`, ")"},
-			wantAST:    []any{Symbol("message"), "hello!"},
+			wantAST:    []any{symbol("message"), "hello!"},
 			wantEval:   "hello!",
 		},
 		{
 			source:     "(+ 1 (+ 0 1))",
 			wantTokens: []string{"(", "+", "1", "(", "+", "0", "1", ")", ")"},
-			wantAST:    []any{Symbol("+"), 1.0, []any{Symbol("+"), 0.0, 1.0}},
+			wantAST:    []any{symbol("+"), 1.0, []any{symbol("+"), 0.0, 1.0}},
 			wantEval:   2.0,
 		},
 		{
 			source:     "(* 5.5 3)",
 			wantTokens: []string{"(", "*", "5.5", "3", ")"},
-			wantAST:    []any{Symbol("*"), 5.5, 3.0},
+			wantAST:    []any{symbol("*"), 5.5, 3.0},
 			wantEval:   16.5,
 		},
 		{
 			source:     "(/ 5 2)",
 			wantTokens: []string{"(", "/", "5", "2", ")"},
-			wantAST:    []any{Symbol("/"), 5.0, 2.0},
+			wantAST:    []any{symbol("/"), 5.0, 2.0},
 			wantEval:   2.5,
 		},
 		{
 			source:     "(> 3 2 1)",
 			wantTokens: []string{"(", ">", "3", "2", "1", ")"},
-			wantAST:    []any{Symbol(">"), 3.0, 2.0, 1.0},
+			wantAST:    []any{symbol(">"), 3.0, 2.0, 1.0},
 			wantEval:   true,
 		},
 		{
 			source:     "(> 3 2 5)",
 			wantTokens: []string{"(", ">", "3", "2", "5", ")"},
-			wantAST:    []any{Symbol(">"), 3.0, 2.0, 5.0},
+			wantAST:    []any{symbol(">"), 3.0, 2.0, 5.0},
 			wantEval:   false,
 		},
 		{
 			source:     "(< 1 2 3)",
 			wantTokens: []string{"(", "<", "1", "2", "3", ")"},
-			wantAST:    []any{Symbol("<"), 1.0, 2.0, 3.0},
+			wantAST:    []any{symbol("<"), 1.0, 2.0, 3.0},
 			wantEval:   true,
 		},
 		{
 			source:     "(>= 3 3 2)",
 			wantTokens: []string{"(", ">=", "3", "3", "2", ")"},
-			wantAST:    []any{Symbol(">="), 3.0, 3.0, 2.0},
+			wantAST:    []any{symbol(">="), 3.0, 3.0, 2.0},
 			wantEval:   true,
 		},
 		{
 			source:     "(<= 1 1 2)",
 			wantTokens: []string{"(", "<=", "1", "1", "2", ")"},
-			wantAST:    []any{Symbol("<="), 1.0, 1.0, 2.0},
+			wantAST:    []any{symbol("<="), 1.0, 1.0, 2.0},
 			wantEval:   true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run("expr: "+test.source, func(t *testing.T) {
-			env := &Env{
-				Functions: functions,
-				Variables: variables,
-			}
+			env := testEnvWithFixtures()
 
 			gotTokens := tokenize(test.source)
 			if !slices.Equal(test.wantTokens, gotTokens) {
@@ -191,16 +167,16 @@ func TestEvalSpecialForms(t *testing.T) {
 		{source: "(unless true unknown-symbol)", want: nil},
 		{source: "(progn)", want: nil},
 		{source: "(progn 1 2 3)", want: 3.0},
-		{source: "(quote hello)", want: Symbol("hello")},
+		{source: "(quote hello)", want: symbol("hello")},
 		{source: "(quote nil)", want: nil},
 		{source: "(quote (1 2 3))", want: []any{1.0, 2.0, 3.0}},
-		{source: "(quote (+ 1 unknown-symbol))", want: []any{Symbol("+"), 1.0, Symbol("unknown-symbol")}},
+		{source: "(quote (+ 1 unknown-symbol))", want: []any{symbol("+"), 1.0, symbol("unknown-symbol")}},
 		{source: "(quote (1 (2 3)))", want: []any{1.0, []any{2.0, 3.0}}},
-		{source: "'hello", want: Symbol("hello")},
+		{source: "'hello", want: symbol("hello")},
 		{source: "'nil", want: nil},
 		{source: "'(1 2 3)", want: []any{1.0, 2.0, 3.0}},
-		{source: "'(+ 1 unknown-symbol)", want: []any{Symbol("+"), 1.0, Symbol("unknown-symbol")}},
-		{source: "(list 'hello '(1 2))", want: []any{Symbol("hello"), []any{1.0, 2.0}}},
+		{source: "'(+ 1 unknown-symbol)", want: []any{symbol("+"), 1.0, symbol("unknown-symbol")}},
+		{source: "(list 'hello '(1 2))", want: []any{symbol("hello"), []any{1.0, 2.0}}},
 		{source: "(if)", wantPanic: true},
 		{source: "(if unknown-symbol)", wantPanic: true},
 		{source: "(when)", wantPanic: true},
@@ -370,7 +346,7 @@ func TestParseProgram(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.source, func(t *testing.T) {
-			got := EvalProgram(test.source, testEnv())
+			got := testEnv().Eval(test.source)
 			if !reflect.DeepEqual(got, test.want) {
 				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
 			}
@@ -378,12 +354,46 @@ func TestParseProgram(t *testing.T) {
 	}
 }
 
+func TestEnvPublicAPI(t *testing.T) {
+	env := NewEnv()
+	env.Define("x", 10.0)
+	env.RegisterFunction("double", func(args []any) any {
+		return args[0].(float64) * 2
+	})
+
+	got := env.Eval("(double x)")
+	if !reflect.DeepEqual(got, 20.0) {
+		t.Fatalf("want %#v (%T), got %#v (%T)", 20.0, 20.0, got, got)
+	}
+}
+
 func evalSource(t *testing.T, source string) any {
 	t.Helper()
 
-	return EvalProgram(source, testEnv())
+	return testEnv().Eval(source)
 }
 
 func testEnv() *Env {
 	return NewEnv()
+}
+
+func testEnvWithFixtures() *Env {
+	env := testEnv()
+	env.RegisterFunction("hey", func(args []any) any {
+		if len(args) >= 1 {
+			return args[0]
+		}
+		return "ho!"
+	})
+	env.RegisterFunction("message", func(args []any) any {
+		if len(args) == 0 {
+			return nil
+		}
+		if len(args) == 1 {
+			return args[0]
+		}
+		return fmt.Sprintf(args[0].(string), args[1:]...)
+	})
+	env.Define("ho", "I'm ho!")
+	return env
 }
