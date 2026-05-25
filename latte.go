@@ -45,7 +45,7 @@ func main() {
 	rl := readline.NewInstance()
 	rl.SetPrompt("latte 🐶> ")
 
-	env := Env{
+	env := &Env{
 		Functions: stdlibFunctions,
 		Variables: stdlibVariables,
 		Parent:    nil,
@@ -376,7 +376,7 @@ func parseAtom(token string) any {
 	return Symbol(token)
 }
 
-func eval(node any, env Env) any {
+func eval(node any, env *Env) any {
 	switch node := node.(type) {
 	case Symbol:
 		value, ok := env.FindSymbol(node)
@@ -395,6 +395,43 @@ func eval(node any, env Env) any {
 
 		// special functions
 		switch symbol {
+		case "let", "let*":
+			if len(node) == 1 {
+				return nil
+			}
+			bindings, ok := node[1].([]any)
+			if !ok {
+				panic("let expression expected bindings at position 2")
+			}
+
+			scope := env.ChildScope()
+			for _, binding := range bindings {
+				binding, ok := binding.([]any)
+				if !ok || len(binding) != 2 {
+					panic("let expression invalid binding")
+				}
+				name, ok := binding[0].(Symbol)
+				if !ok {
+					panic("let binding is not a symbol: " + fmt.Sprint(binding[0]))
+				}
+
+				if string(symbol) == "let" {
+					scope.DefineVariable(name, eval(binding[1], env))
+				} else {
+					scope.DefineVariable(name, eval(binding[1], scope))
+				}
+			}
+
+			if len(node) == 2 {
+				return nil
+			}
+
+			var lastEval any
+			for _, node := range node[2:] {
+				lastEval = eval(node, scope)
+			}
+			return lastEval
+
 		case "define":
 			if len(node) != 3 {
 				panic("define expects exactly 2 arguments")

@@ -146,7 +146,7 @@ func TestLatte(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run("expr: "+test.source, func(t *testing.T) {
-			env := Env{
+			env := &Env{
 				Functions: functions,
 				Variables: variables,
 			}
@@ -317,12 +317,65 @@ func TestEvalListFunctionsPanics(t *testing.T) {
 	}
 }
 
+func TestEvalLet(t *testing.T) {
+	tests := []struct {
+		source    string
+		want      any
+		wantPanic bool
+	}{
+		{source: "(let () 1 2)", want: 2.0},
+		{source: "(let ((x 2)) x)", want: 2.0},
+		{source: "(let ((x 2) (y 3)) (+ x y))", want: 5.0},
+		{source: "(let ((xs '(1 2 3))) (car xs))", want: 1.0},
+		{source: "(let ((x 1)) (let ((y x)) y))", want: 1.0},
+		{source: "(let ((x 1)) (let ((x 2)) x))", want: 2.0},
+		{source: "(progn (define x 10) (let ((x 2)) x) x)", want: 10.0},
+		{source: "(let ((x 1)))", want: nil},
+		{source: "(progn (define x 10) (let ((x 1) (y x)) y))", want: 10.0},
+		{source: "(let* () 1 2)", want: 2.0},
+		{source: "(let* ((x 2)) x)", want: 2.0},
+		{source: "(let* ((x 2) (y (+ x 3))) y)", want: 5.0},
+		{source: "(progn (define x 10) (let* ((x 1) (y x)) y))", want: 1.0},
+		{source: "(progn (define x 10) (let* ((x 1) (x (+ x 1))) x))", want: 2.0},
+		{source: "(let* ((x '(1 2 3)) (y (cdr x))) (car y))", want: 2.0},
+		{source: "(let* ((x 1)))", want: nil},
+		{source: "(let 1 2)", wantPanic: true},
+		{source: "(let (x 1) x)", wantPanic: true},
+		{source: "(let ((x)) x)", wantPanic: true},
+		{source: "(let ((x 1 2)) x)", wantPanic: true},
+		{source: "(let ((1 2)) 3)", wantPanic: true},
+		{source: "(let ((x unknown-symbol)) x)", wantPanic: true},
+		{source: "(let* 1 2)", wantPanic: true},
+		{source: "(let* (x 1) x)", wantPanic: true},
+		{source: "(let* ((x)) x)", wantPanic: true},
+		{source: "(let* ((x 1 2)) x)", wantPanic: true},
+		{source: "(let* ((1 2)) 3)", wantPanic: true},
+		{source: "(let* ((x unknown-symbol)) x)", wantPanic: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.source, func(t *testing.T) {
+			defer func() {
+				gotPanic := recover() != nil
+				if gotPanic != test.wantPanic {
+					t.Fatalf("panic: want %v, got %v", test.wantPanic, gotPanic)
+				}
+			}()
+
+			got := evalSource(t, test.source)
+			if !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
+			}
+		})
+	}
+}
+
 func evalSource(t *testing.T, source string) any {
 	t.Helper()
 
 	functions := maps.Clone(stdlibFunctions)
 	variables := maps.Clone(stdlibVariables)
-	env := Env{
+	env := &Env{
 		Functions: functions,
 		Variables: variables,
 	}
