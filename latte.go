@@ -365,6 +365,12 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 			}
 
 			return lastEval
+
+		case "quote":
+			if len(node) != 2 {
+				panic("quote expects exactly one argument")
+			}
+			return cloneValue(node[1])
 		}
 
 		if _, ok := functions[symbol]; !ok {
@@ -399,4 +405,17 @@ func isTruthy(val any) bool {
 		return false
 	}
 	return !reflect.ValueOf(val).IsZero()
+}
+
+func cloneValue(val any) any {
+	switch val := val.(type) {
+	case []any:
+		cloned := make([]any, len(val))
+		for i, item := range val {
+			cloned[i] = cloneValue(item)
+		}
+		return cloned
+	default:
+		return val
+	}
 }
