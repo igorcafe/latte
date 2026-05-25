@@ -428,8 +428,6 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 			panic("unknown function " + string(symbol))
 		}
 
-		fnVal := reflect.ValueOf(functions[symbol])
-
 		args := []any{}
 		if len(node) > 1 {
 			for _, node := range node[1:] {
@@ -438,14 +436,8 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 			}
 		}
 
-		results := fnVal.Call([]reflect.Value{reflect.ValueOf(args)})
-		if len(results) > 1 {
-			panic("TODO: lisp exposed functions should return a single value")
-		}
-		if len(results) == 0 {
-			return nil
-		}
-		return results[0].Interface()
+		result := functions[symbol](args)
+		return result
 	}
 
 	return nil
