@@ -352,15 +352,44 @@ func TestEvalLet(t *testing.T) {
 	}
 }
 
+func TestParseProgram(t *testing.T) {
+	tests := []struct {
+		source string
+		want   any
+	}{
+		{
+			source: `
+				(define x 1)
+				(define y 2)
+				(+ x y)
+			`,
+			want: 3.0,
+		},
+		{source: "(define x 1) (define y 2) (+ x y)", want: 3.0},
+	}
+
+	for _, test := range tests {
+		t.Run(test.source, func(t *testing.T) {
+			got := evalProgram(test.source, testEnv())
+			if !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
+			}
+		})
+	}
+}
+
 func evalSource(t *testing.T, source string) any {
 	t.Helper()
 
+	return evalProgram(source, testEnv())
+}
+
+func testEnv() *Env {
+
 	functions := maps.Clone(stdlibFunctions)
 	variables := maps.Clone(stdlibVariables)
-	env := &Env{
+	return &Env{
 		Functions: functions,
 		Variables: variables,
 	}
-
-	return eval(parse(tokenize(source)), env)
 }

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"reflect"
 	"slices"
@@ -42,14 +43,25 @@ func (env *Env) ChildScope() *Env {
 }
 
 func main() {
-	rl := readline.NewInstance()
-	rl.SetPrompt("latte 🐶> ")
-
 	env := &Env{
 		Functions: stdlibFunctions,
 		Variables: stdlibVariables,
 		Parent:    nil,
 	}
+
+	if len(os.Args) > 1 {
+		for _, path := range os.Args[1:] {
+			b, err := os.ReadFile(path)
+			if err != nil {
+				log.Printf("error reading file '%s': %v", path, err)
+			}
+			evalProgram(string(b), env)
+		}
+		return
+	}
+
+	rl := readline.NewInstance()
+	rl.SetPrompt("latte 🐶> ")
 
 	for {
 		func() {
@@ -65,9 +77,7 @@ func main() {
 				os.Exit(1)
 			}
 
-			tokens := tokenize(line)
-			ast := parse(tokens)
-			val := eval(ast, env)
+			val := evalProgram(line, env)
 			fmt.Println("$", val)
 		}()
 	}
@@ -334,6 +344,15 @@ func parse(tokens []string) any {
 
 }
 
+func parseProgram(tokens []string) []any {
+	exprs := []any{}
+	pos := 0
+	for pos < len(tokens) {
+		exprs = append(exprs, parseExpr(tokens, &pos))
+	}
+	return exprs
+}
+
 func parseExpr(tokens []string, pos *int) any {
 	if *pos >= len(tokens) {
 		panic("TODO: syntax error, unexpected end of input")
@@ -515,6 +534,14 @@ func eval(node any, env *Env) any {
 	}
 
 	return nil
+}
+
+func evalProgram(source string, env *Env) any {
+	var result any
+	for _, ast := range parseProgram(tokenize(source)) {
+		result = eval(ast, env)
+	}
+	return result
 }
 
 func isTruthy(val any) bool {
