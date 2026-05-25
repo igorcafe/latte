@@ -186,6 +186,7 @@ func TestEvalSpecialForms(t *testing.T) {
 		{source: "(progn)", want: nil},
 		{source: "(progn 1 2 3)", want: 3.0},
 		{source: "(quote hello)", want: Symbol("hello")},
+		{source: "(quote nil)", want: nil},
 		{source: "(quote (1 2 3))", want: []any{1.0, 2.0, 3.0}},
 		{source: "(quote (+ 1 unknown-symbol))", want: []any{Symbol("+"), 1.0, Symbol("unknown-symbol")}},
 		{source: "(quote (1 (2 3)))", want: []any{1.0, []any{2.0, 3.0}}},
@@ -220,6 +221,30 @@ func TestEvalSpecialFormsPanics(t *testing.T) {
 			}()
 
 			evalSource(t, source)
+		})
+	}
+}
+
+func TestNilAndEmptyListEquivalence(t *testing.T) {
+	tests := []struct {
+		source string
+		want   any
+	}{
+		{source: "nil", want: nil},
+		{source: "(quote ())", want: nil},
+		{source: "(list)", want: nil},
+		{source: "(= nil (quote ()))", want: true},
+		{source: "(= nil (list))", want: true},
+		{source: "(not (quote ()))", want: true},
+		{source: "(if (quote ()) 1 2)", want: 2.0},
+	}
+
+	for _, test := range tests {
+		t.Run(test.source, func(t *testing.T) {
+			got := evalSource(t, test.source)
+			if !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
+			}
 		})
 	}
 }

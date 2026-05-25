@@ -93,6 +93,9 @@ var stdlibFunctions = map[Symbol]func(args []any) any{
 		return lispCompare(args, "<=")
 	},
 	"list": func(args []any) any {
+		if len(args) == 0 {
+			return nil
+		}
 		return args
 	},
 	"print": func(args []any) any {
@@ -122,6 +125,9 @@ func lispEqual(args []any) any {
 	}
 	val := args[0]
 	for _, arg := range args {
+		if isNil(val) && isNil(arg) {
+			continue
+		}
 		if !reflect.DeepEqual(val, arg) {
 			return false
 		}
@@ -401,15 +407,31 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 }
 
 func isTruthy(val any) bool {
-	if val == nil {
+	if isNil(val) {
 		return false
 	}
 	return !reflect.ValueOf(val).IsZero()
 }
 
+func isNil(val any) bool {
+	if val == nil {
+		return true
+	}
+	list, ok := val.([]any)
+	return ok && len(list) == 0
+}
+
 func cloneValue(val any) any {
 	switch val := val.(type) {
+	case Symbol:
+		if val == "nil" {
+			return nil
+		}
+		return val
 	case []any:
+		if len(val) == 0 {
+			return nil
+		}
 		cloned := make([]any, len(val))
 		for i, item := range val {
 			cloned[i] = cloneValue(item)
