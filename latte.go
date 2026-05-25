@@ -1,17 +1,14 @@
-package main
+package latte
 
 import (
 	"cmp"
 	"encoding/json"
 	"fmt"
-	"log"
-	"os"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
 	"unicode"
-
-	"github.com/lmorg/readline/v4"
 )
 
 type Env struct {
@@ -42,44 +39,11 @@ func (env *Env) ChildScope() *Env {
 	}
 }
 
-func main() {
-	env := &Env{
-		Functions: stdlibFunctions,
-		Variables: stdlibVariables,
+func NewEnv() *Env {
+	return &Env{
+		Functions: maps.Clone(stdlibFunctions),
+		Variables: maps.Clone(stdlibVariables),
 		Parent:    nil,
-	}
-
-	if len(os.Args) > 1 {
-		for _, path := range os.Args[1:] {
-			b, err := os.ReadFile(path)
-			if err != nil {
-				log.Printf("error reading file '%s': %v", path, err)
-			}
-			evalProgram(string(b), env)
-		}
-		return
-	}
-
-	rl := readline.NewInstance()
-	rl.SetPrompt("latte 🐶> ")
-
-	for {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					fmt.Fprintf(os.Stderr, "panic: %v", r)
-				}
-			}()
-
-			line, err := rl.Readline()
-
-			if err != nil {
-				os.Exit(1)
-			}
-
-			val := evalProgram(line, env)
-			fmt.Println("$", val)
-		}()
 	}
 }
 
@@ -536,7 +500,7 @@ func eval(node any, env *Env) any {
 	return nil
 }
 
-func evalProgram(source string, env *Env) any {
+func EvalProgram(source string, env *Env) any {
 	var result any
 	for _, ast := range parseProgram(tokenize(source)) {
 		result = eval(ast, env)

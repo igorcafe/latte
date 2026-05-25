@@ -1,4 +1,4 @@
-package main
+package latte
 
 import (
 	"fmt"
@@ -370,7 +370,7 @@ func TestParseProgram(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.source, func(t *testing.T) {
-			got := evalProgram(test.source, testEnv())
+			got := EvalProgram(test.source, testEnv())
 			if !reflect.DeepEqual(got, test.want) {
 				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
 			}
@@ -381,15 +381,9 @@ func TestParseProgram(t *testing.T) {
 func evalSource(t *testing.T, source string) any {
 	t.Helper()
 
-	return evalProgram(source, testEnv())
+	return EvalProgram(source, testEnv())
 }
 
 func testEnv() *Env {
-
-	functions := maps.Clone(stdlibFunctions)
-	variables := maps.Clone(stdlibVariables)
-	return &Env{
-		Functions: functions,
-		Variables: variables,
-	}
+	return NewEnv()
 }
