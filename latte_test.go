@@ -2,64 +2,32 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"testing"
 )
 
-func Test2(t *testing.T) {
-	functions := map[Symbol]func([]any) any{
-		//
-		"hey": func(args []any) any {
-			if len(args) >= 1 {
-				return args[0]
-			}
-			return "ho!"
-		},
-		"message": func(args []any) any {
-			if len(args) == 0 {
-				return nil
-			}
-			if len(args) == 1 {
-				return args[0]
-			}
-			return fmt.Sprintf(args[0].(string), args[1:]...)
-		},
-		"+": func(args []any) any {
-			total := args[0].(float64)
-			for _, arg := range args[1:] {
-				total -= arg.(float64)
-			}
-			return total
-		},
-		"-": func(args []any) any {
-			total := args[0].(float64)
-			for _, arg := range args[1:] {
-				total -= arg.(float64)
-			}
-			return total
-		},
-		"*": func(args []any) any {
-			total := args[0].(float64)
-			for _, arg := range args[1:] {
-				total *= arg.(float64)
-			}
-			return total
-		},
-		"/": func(args []any) any {
-			total := args[0].(float64)
-			for _, arg := range args[1:] {
-				total /= arg.(float64)
-			}
-			return total
-		},
+func TestLatte(t *testing.T) {
+	functions := maps.Clone(stdlibFunctions)
+	functions["hey"] = func(args []any) any {
+		if len(args) >= 1 {
+			return args[0]
+		}
+		return "ho!"
+	}
+	functions["message"] = func(args []any) any {
+		if len(args) == 0 {
+			return nil
+		}
+		if len(args) == 1 {
+			return args[0]
+		}
+		return fmt.Sprintf(args[0].(string), args[1:]...)
 	}
 
-	variables := map[Symbol]any{
-		"ho":  "I'm ho!",
-		"t":   true,
-		"nil": nil,
-	}
+	variables := maps.Clone(stdlibVariables)
+	variables["ho"] = "I'm ho!"
 
 	tests := []struct {
 		source     string
@@ -68,15 +36,15 @@ func Test2(t *testing.T) {
 		wantEval   any
 	}{
 		{
-			source:     "t",
-			wantTokens: []string{"t"},
-			wantAST:    Symbol("t"),
+			source:     "true",
+			wantTokens: []string{"true"},
+			wantAST:    Symbol("true"),
 			wantEval:   true,
 		},
 		{
-			source:     "\n\n\t  t \n\n\t",
-			wantTokens: []string{"t"},
-			wantAST:    Symbol("t"),
+			source:     "\n\n\t  true \n\n\t",
+			wantTokens: []string{"true"},
+			wantAST:    Symbol("true"),
 			wantEval:   true,
 		},
 		{
@@ -143,6 +111,36 @@ func Test2(t *testing.T) {
 			wantTokens: []string{"(", "/", "5", "2", ")"},
 			wantAST:    []any{Symbol("/"), 5.0, 2.0},
 			wantEval:   2.5,
+		},
+		{
+			source:     "(> 3 2 1)",
+			wantTokens: []string{"(", ">", "3", "2", "1", ")"},
+			wantAST:    []any{Symbol(">"), 3.0, 2.0, 1.0},
+			wantEval:   true,
+		},
+		{
+			source:     "(> 3 2 5)",
+			wantTokens: []string{"(", ">", "3", "2", "5", ")"},
+			wantAST:    []any{Symbol(">"), 3.0, 2.0, 5.0},
+			wantEval:   false,
+		},
+		{
+			source:     "(< 1 2 3)",
+			wantTokens: []string{"(", "<", "1", "2", "3", ")"},
+			wantAST:    []any{Symbol("<"), 1.0, 2.0, 3.0},
+			wantEval:   true,
+		},
+		{
+			source:     "(>= 3 3 2)",
+			wantTokens: []string{"(", ">=", "3", "3", "2", ")"},
+			wantAST:    []any{Symbol(">="), 3.0, 3.0, 2.0},
+			wantEval:   true,
+		},
+		{
+			source:     "(<= 1 1 2)",
+			wantTokens: []string{"(", "<=", "1", "1", "2", ")"},
+			wantAST:    []any{Symbol("<="), 1.0, 1.0, 2.0},
+			wantEval:   true,
 		},
 	}
 
