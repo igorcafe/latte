@@ -147,9 +147,9 @@ func TestLatte(t *testing.T) {
 
 func TestEvalSpecialForms(t *testing.T) {
 	tests := []struct {
-		source    string
-		want      any
-		wantPanic bool
+		source  string
+		want    any
+		wantErr bool
 	}{
 		{source: "(if true 1 2)", want: 1.0},
 		{source: "(if false 1 2)", want: 2.0},
@@ -177,24 +177,24 @@ func TestEvalSpecialForms(t *testing.T) {
 		{source: "'(1 2 3)", want: []any{1.0, 2.0, 3.0}},
 		{source: "'(+ 1 unknown-symbol)", want: []any{symbol("+"), 1.0, symbol("unknown-symbol")}},
 		{source: "(list 'hello '(1 2))", want: []any{symbol("hello"), []any{1.0, 2.0}}},
-		{source: "(if)", wantPanic: true},
-		{source: "(if unknown-symbol)", wantPanic: true},
-		{source: "(when)", wantPanic: true},
-		{source: "(unless)", wantPanic: true},
-		{source: "(quote)", wantPanic: true},
-		{source: "(quote 1 2)", wantPanic: true},
+		{source: "(if)", wantErr: true},
+		{source: "(if unknown-symbol)", wantErr: true},
+		{source: "(when)", wantErr: true},
+		{source: "(unless)", wantErr: true},
+		{source: "(quote)", wantErr: true},
+		{source: "(quote 1 2)", wantErr: true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.source, func(t *testing.T) {
-			defer func() {
-				gotPanic := recover() != nil
-				if gotPanic != test.wantPanic {
-					t.Fatalf("panic: want %v, got %v", test.wantPanic, gotPanic)
-				}
-			}()
-
-			got := evalSource(t, test.source)
+			got, err := testEnv().Eval(test.source)
+			gotErr := err != nil
+			if gotErr != test.wantErr {
+				t.Fatalf("error: want %v, got %v (%v)", test.wantErr, gotErr, err)
+			}
+			if test.wantErr {
+				return
+			}
 			if !reflect.DeepEqual(got, test.want) {
 				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
 			}
@@ -233,9 +233,9 @@ func TestNilAndEmptyListSemantics(t *testing.T) {
 
 func TestEvalListFunctions(t *testing.T) {
 	tests := []struct {
-		source    string
-		want      any
-		wantPanic bool
+		source  string
+		want    any
+		wantErr bool
 	}{
 		{source: "(list 1 2 3)", want: []any{1.0, 2.0, 3.0}},
 		{source: "(list)", want: []any{}},
@@ -250,24 +250,24 @@ func TestEvalListFunctions(t *testing.T) {
 		{source: "(cdr nil)", want: nil},
 		{source: "(cdr (quote nil))", want: nil},
 		{source: "(cdr (quote ()))", want: nil},
-		{source: "(car)", wantPanic: true},
-		{source: "(car 1)", wantPanic: true},
-		{source: "(car (quote (1 2)) 3)", wantPanic: true},
-		{source: "(cdr)", wantPanic: true},
-		{source: "(cdr 1)", wantPanic: true},
-		{source: "(cdr (quote (1 2)) 3)", wantPanic: true},
+		{source: "(car)", wantErr: true},
+		{source: "(car 1)", wantErr: true},
+		{source: "(car (quote (1 2)) 3)", wantErr: true},
+		{source: "(cdr)", wantErr: true},
+		{source: "(cdr 1)", wantErr: true},
+		{source: "(cdr (quote (1 2)) 3)", wantErr: true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.source, func(t *testing.T) {
-			defer func() {
-				gotPanic := recover() != nil
-				if gotPanic != test.wantPanic {
-					t.Fatalf("panic: want %v, got %v", test.wantPanic, gotPanic)
-				}
-			}()
-
-			got := evalSource(t, test.source)
+			got, err := testEnv().Eval(test.source)
+			gotErr := err != nil
+			if gotErr != test.wantErr {
+				t.Fatalf("error: want %v, got %v (%v)", test.wantErr, gotErr, err)
+			}
+			if test.wantErr {
+				return
+			}
 			if !reflect.DeepEqual(got, test.want) {
 				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
 			}
@@ -277,9 +277,9 @@ func TestEvalListFunctions(t *testing.T) {
 
 func TestEvalLet(t *testing.T) {
 	tests := []struct {
-		source    string
-		want      any
-		wantPanic bool
+		source  string
+		want    any
+		wantErr bool
 	}{
 		{source: "(let () 1 2)", want: 2.0},
 		{source: "(let ((x 2)) x)", want: 2.0},
@@ -297,30 +297,30 @@ func TestEvalLet(t *testing.T) {
 		{source: "(progn (define x 10) (let* ((x 1) (x (+ x 1))) x))", want: 2.0},
 		{source: "(let* ((x '(1 2 3)) (y (cdr x))) (car y))", want: 2.0},
 		{source: "(let* ((x 1)))", want: nil},
-		{source: "(let 1 2)", wantPanic: true},
-		{source: "(let (x 1) x)", wantPanic: true},
-		{source: "(let ((x)) x)", wantPanic: true},
-		{source: "(let ((x 1 2)) x)", wantPanic: true},
-		{source: "(let ((1 2)) 3)", wantPanic: true},
-		{source: "(let ((x unknown-symbol)) x)", wantPanic: true},
-		{source: "(let* 1 2)", wantPanic: true},
-		{source: "(let* (x 1) x)", wantPanic: true},
-		{source: "(let* ((x)) x)", wantPanic: true},
-		{source: "(let* ((x 1 2)) x)", wantPanic: true},
-		{source: "(let* ((1 2)) 3)", wantPanic: true},
-		{source: "(let* ((x unknown-symbol)) x)", wantPanic: true},
+		{source: "(let 1 2)", wantErr: true},
+		{source: "(let (x 1) x)", wantErr: true},
+		{source: "(let ((x)) x)", wantErr: true},
+		{source: "(let ((x 1 2)) x)", wantErr: true},
+		{source: "(let ((1 2)) 3)", wantErr: true},
+		{source: "(let ((x unknown-symbol)) x)", wantErr: true},
+		{source: "(let* 1 2)", wantErr: true},
+		{source: "(let* (x 1) x)", wantErr: true},
+		{source: "(let* ((x)) x)", wantErr: true},
+		{source: "(let* ((x 1 2)) x)", wantErr: true},
+		{source: "(let* ((1 2)) 3)", wantErr: true},
+		{source: "(let* ((x unknown-symbol)) x)", wantErr: true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.source, func(t *testing.T) {
-			defer func() {
-				gotPanic := recover() != nil
-				if gotPanic != test.wantPanic {
-					t.Fatalf("panic: want %v, got %v", test.wantPanic, gotPanic)
-				}
-			}()
-
-			got := evalSource(t, test.source)
+			got, err := testEnv().Eval(test.source)
+			gotErr := err != nil
+			if gotErr != test.wantErr {
+				t.Fatalf("error: want %v, got %v (%v)", test.wantErr, gotErr, err)
+			}
+			if test.wantErr {
+				return
+			}
 			if !reflect.DeepEqual(got, test.want) {
 				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
 			}
@@ -346,7 +346,10 @@ func TestParseProgram(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.source, func(t *testing.T) {
-			got := testEnv().Eval(test.source)
+			got, err := testEnv().Eval(test.source)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if !reflect.DeepEqual(got, test.want) {
 				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
 			}
@@ -361,7 +364,10 @@ func TestEnvPublicAPI(t *testing.T) {
 		return args[0].(float64) * 2
 	})
 
-	got := env.Eval("(double x)")
+	got, err := env.Eval("(double x)")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !reflect.DeepEqual(got, 20.0) {
 		t.Fatalf("want %#v (%T), got %#v (%T)", 20.0, 20.0, got, got)
 	}
@@ -370,7 +376,11 @@ func TestEnvPublicAPI(t *testing.T) {
 func evalSource(t *testing.T, source string) any {
 	t.Helper()
 
-	return testEnv().Eval(source)
+	got, err := testEnv().Eval(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return got
 }
 
 func testEnv() *Env {

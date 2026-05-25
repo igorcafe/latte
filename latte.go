@@ -25,12 +25,22 @@ func NewEnv() *Env {
 	}
 }
 
-func (env *Env) Eval(source string) any {
+func (env *Env) Eval(source string) (value any, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if errValue, ok := r.(error); ok {
+				err = errValue
+				return
+			}
+			err = fmt.Errorf("%v", r)
+		}
+	}()
+
 	var result any
 	for _, ast := range parseProgram(tokenize(source)) {
 		result = eval(ast, env)
 	}
-	return result
+	return result, nil
 }
 
 func (env *Env) Define(name string, value any) {
