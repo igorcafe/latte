@@ -163,3 +163,60 @@ func TestLatte(t *testing.T) {
 		})
 	}
 }
+
+func TestEvalSpecialForms(t *testing.T) {
+	tests := []struct {
+		source string
+		want   any
+	}{
+		{source: "(if true 1 2)", want: 1.0},
+		{source: "(if false 1 2)", want: 2.0},
+		{source: "(if nil 1 2)", want: 2.0},
+		{source: "(if 0 1 2)", want: 2.0},
+		{source: `(if "" 1 2)`, want: 2.0},
+		{source: "(if true 1 unknown-symbol)", want: 1.0},
+		{source: "(if false unknown-symbol 2)", want: 2.0},
+		{source: "(when true 1 2)", want: 2.0},
+		{source: "(when false unknown-symbol)", want: nil},
+		{source: "(when nil unknown-symbol)", want: nil},
+		{source: "(progn)", want: nil},
+		{source: "(progn 1 2 3)", want: 3.0},
+	}
+
+	for _, test := range tests {
+		t.Run(test.source, func(t *testing.T) {
+			got := evalSource(t, test.source)
+			if !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
+			}
+		})
+	}
+}
+
+func TestEvalSpecialFormsPanics(t *testing.T) {
+	tests := []string{
+		"(if)",
+		"(when)",
+	}
+
+	for _, source := range tests {
+		t.Run(source, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Fatal("expected panic")
+				}
+			}()
+
+			evalSource(t, source)
+		})
+	}
+}
+
+func evalSource(t *testing.T, source string) any {
+	t.Helper()
+
+	functions := maps.Clone(stdlibFunctions)
+	variables := maps.Clone(stdlibVariables)
+
+	return eval(parse(tokenize(source)), functions, variables)
+}

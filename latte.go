@@ -74,7 +74,7 @@ var stdlibFunctions = map[Symbol]func(args []any) any{
 		if len(args) != 1 {
 			panic("TODO wrong number of args (not)")
 		}
-		return reflect.ValueOf(args[0]).IsZero()
+		return !isTruthy(args[0])
 	},
 	"=": lispEqual,
 	"!=": func(args []any) any {
@@ -314,8 +314,54 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 		}
 
 		symbol := node[0].(Symbol)
+
+		// special functions
+		switch symbol {
+		case "when", "unless":
+			if len(node) < 2 {
+				panic(string(symbol) + "needs a condition")
+			}
+
+			cond := eval(node[1], functions, variables)
+			if isTruthy(cond) == (string(symbol) == "unless") {
+				return nil
+			}
+
+			var lastEval any
+			for _, node := range node[2:] {
+				lastEval = eval(node, functions, variables)
+			}
+
+			return lastEval
+
+		case "if":
+			if len(node) < 2 {
+				panic("if needs a condition")
+			}
+
+			cond := eval(node[1], functions, variables)
+			if isTruthy(cond) {
+				return eval(node[2], functions, variables)
+			}
+
+			var lastEval any
+			for _, node := range node[3:] {
+				lastEval = eval(node, functions, variables)
+			}
+
+			return lastEval
+
+		case "progn":
+			var lastEval any
+			for _, node := range node[1:] {
+				lastEval = eval(node, functions, variables)
+			}
+
+			return lastEval
+		}
+
 		if _, ok := functions[symbol]; !ok {
-			panic("TODO: unknown function " + string(symbol))
+			panic("unknown function " + string(symbol))
 		}
 
 		fnVal := reflect.ValueOf(functions[symbol])
@@ -339,4 +385,11 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 	}
 
 	return nil
+}
+
+func isTruthy(val any) bool {
+	if val == nil {
+		return false
+	}
+	return !reflect.ValueOf(val).IsZero()
 }
