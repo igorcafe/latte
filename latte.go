@@ -3,8 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -14,76 +13,131 @@ import (
 )
 
 func main() {
-	log.Default().SetOutput(io.Discard)
-
-	functions := map[Symbol]func([]any) any{
-		//
-		"hey": func(args []any) any {
-			if len(args) >= 1 {
-				return args[0]
-			}
-			return "ho!"
-		},
-		"message": func(args []any) any {
-			if len(args) == 0 {
-				return nil
-			}
-			if len(args) == 1 {
-				return args[0]
-			}
-			return fmt.Sprintf(args[0].(string), args[1:]...)
-		},
-		"+": func(args []any) any {
-			total := args[0].(float64)
-			for _, arg := range args[1:] {
-				total -= arg.(float64)
-			}
-			return total
-		},
-		"-": func(args []any) any {
-			total := args[0].(float64)
-			for _, arg := range args[1:] {
-				total -= arg.(float64)
-			}
-			return total
-		},
-		"*": func(args []any) any {
-			total := args[0].(float64)
-			for _, arg := range args[1:] {
-				total *= arg.(float64)
-			}
-			return total
-		},
-		"/": func(args []any) any {
-			total := args[0].(float64)
-			for _, arg := range args[1:] {
-				total /= arg.(float64)
-			}
-			return total
-		},
-	}
-
-	variables := map[Symbol]any{
-		"ho":  "I'm ho!",
-		"t":   true,
-		"nil": nil,
-	}
-
 	rl := readline.NewInstance()
 	rl.SetPrompt("latte 🐶> ")
 
 	for {
-		line, err := rl.Readline()
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Fprintf(os.Stderr, "panic: %v", r)
+				}
+			}()
 
-		if err != nil {
-			return
+			line, err := rl.Readline()
+
+			if err != nil {
+				os.Exit(1)
+			}
+
+			tokens := tokenize(line)
+			ast := parse(tokens)
+			val := eval(ast, stdlibFunctions, stdlibVariables)
+			fmt.Println("$", val)
+		}()
+	}
+}
+
+var stdlibVariables = map[Symbol]any{
+	"t":   true,
+	"f":   false,
+	"nil": nil,
+}
+
+var stdlibFunctions = map[Symbol]func(args []any) any{
+	"+": func(args []any) any {
+		return arithmeticOperation(
+			args,
+			func(a, b float64) float64 { return a + b },
+		)
+	},
+	"-": func(args []any) any {
+		return arithmeticOperation(
+			args,
+			func(a, b float64) float64 { return a - b },
+		)
+	},
+	"*": func(args []any) any {
+		return arithmeticOperation(
+			args,
+			func(a, b float64) float64 { return a * b },
+		)
+	},
+	"/": func(args []any) any {
+		return arithmeticOperation(
+			args,
+			func(a, b float64) float64 { return a / b },
+		)
+	},
+	"not": func(args []any) any {
+		if len(args) != 1 {
+			panic("TODO wrong number of args (not)")
+		}
+		return reflect.ValueOf(args[0]).IsZero()
+	},
+	"=": lispEqual,
+	"!=": func(args []any) any {
+		return !lispEqual(args).(bool)
+	},
+	"print": func(args []any) any {
+		fmt.Print(args...)
+		return nil
+	},
+	"println": func(args []any) any {
+		fmt.Println(args...)
+		return nil
+	},
+	"printf": func(args []any) any {
+		if len(args) == 0 {
+			panic("printf: invalid number of arguments")
+		}
+		if _, ok := args[0].(string); !ok {
+			panic("printf: invalid argument type for format string")
 		}
 
-		tokens := tokenize(line)
-		ast := parse(tokens)
-		val := eval(ast, functions, variables)
-		fmt.Println("$", val)
+		if len(args) == 1 {
+			fmt.Printf(args[0].(string))
+			return nil
+		}
+
+		fmt.Printf(args[0].(string), args[1:]...)
+		return nil
+	},
+}
+
+func lispEqual(args []any) any {
+	if len(args) == 0 {
+		return true
 	}
+	val := args[0]
+	for _, arg := range args {
+		if !reflect.DeepEqual(val, arg) {
+			return false
+		}
+	}
+	return true
+}
+
+func arithmeticOperation(args []any, op func(float64, float64) float64) float64 {
+	if len(args) == 0 {
+		return 0.0
+	}
+
+	total := 0.0
+	for i, arg := range args {
+		switch arg := arg.(type) {
+		case float64:
+			if i == 0 {
+				total = arg
+			} else {
+				total = op(total, arg)
+			}
+		default:
+			panic("TODO: user level error for non float")
+		}
+	}
+
+	return total
 }
 
 type Symbol string
@@ -165,22 +219,11 @@ func parse(tokens []string) any {
 
 	for _, token := range tokens {
 		if token == "(" {
-			// salvar localizacao da lista atual na stack?
-			// adicionar uma lista na posicao atual e passar a trabalhar nela
-			// "(", "hello", "(", "world", ")", ")"
-			// []any{"hello", []any{"world"}}
 			next := []any{}
 			tree = append(tree, next)
 			stack = append(stack, tree)
 			tree = next
 
-			// next := []any{}
-			// curr = append(curr, next)
-			// stack = append(stack, len(tree)-1)
-			// curr = append(curr, next)
-			// prev = curr
-			// curr = next
-			log.Print("parser: stack pushed")
 			continue
 		}
 		if token == ")" {
@@ -193,14 +236,8 @@ func parse(tokens []string) any {
 			stack = stack[:len(stack)-1]
 			tree[len(tree)-1] = curr
 
-			// next := []any{}
-			// curr = append(curr, next)
-			// prev = curr
-			// curr = next
-			log.Print("parser: stack poped")
 			continue
 		}
-		log.Printf("parser: current token: %s", token)
 		tree = append(tree, parse([]string{token}))
 	}
 
@@ -232,16 +269,6 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 		}
 
 		fnVal := reflect.ValueOf(functions[symbol])
-
-		// reflectFn := reflect.ValueOf(fn)
-
-		// if !reflectFn.IsValid() {
-		// 	panic("TODO: symbol is not a valid function: " + string(symbol))
-		// }
-
-		// if reflectFn.Kind() != reflect.Func {
-		// 	panic("TODO: symbol is not a function: " + string(symbol))
-		// }
 
 		args := []any{}
 		if len(node) > 1 {
