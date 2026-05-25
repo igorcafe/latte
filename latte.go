@@ -143,6 +143,58 @@ var stdlibFunctions = map[symbol]func(args []any) any{
 
 		return list[1:]
 	},
+	"nth": func(args []any) any {
+		if len(args) != 2 {
+			panic("nth expects exactly two arguments")
+		}
+
+		index, ok := args[0].(float64)
+		if !ok {
+			panic("nth expects index to be a number")
+		}
+		if index < 0 || index != float64(int(index)) {
+			panic("nth expects index to be a non-negative integer")
+		}
+
+		if args[1] == nil || isEmptyList(args[1]) {
+			return nil
+		}
+
+		list, ok := args[1].([]any)
+		if !ok {
+			panic("nth expects a list")
+		}
+
+		i := int(index)
+		if i >= len(list) {
+			return nil
+		}
+
+		return list[i]
+	},
+	"null": func(args []any) any {
+		if len(args) != 1 {
+			panic("null expects exactly one argument")
+		}
+
+		return args[0] == nil || isEmptyList(args[0])
+	},
+	"length": func(args []any) any {
+		if len(args) != 1 {
+			panic("length expects exactly one argument")
+		}
+
+		if args[0] == nil {
+			return 0.0
+		}
+
+		list, ok := args[0].([]any)
+		if !ok {
+			panic("length expects a list")
+		}
+
+		return float64(len(list))
+	},
 	"print": func(args []any) any {
 		fmt.Print(args...)
 		return nil
