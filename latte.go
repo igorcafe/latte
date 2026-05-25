@@ -13,9 +13,43 @@ import (
 	"github.com/lmorg/readline/v4"
 )
 
+type Env struct {
+	Functions map[Symbol]func([]any) any
+	Variables map[Symbol]any
+	Parent    *Env
+}
+
+func (env *Env) FindSymbol(symbol Symbol) (any, bool) {
+	if variable, ok := env.Variables[symbol]; ok {
+		return variable, ok
+	}
+	if env.Parent != nil {
+		return env.Parent.FindSymbol(symbol)
+	}
+	return nil, false
+}
+
+func (env *Env) DefineVariable(name Symbol, value any) {
+	env.Variables[name] = value
+}
+
+func (env *Env) ChildScope() *Env {
+	return &Env{
+		Functions: env.Functions,
+		Variables: make(map[Symbol]any),
+		Parent:    env,
+	}
+}
+
 func main() {
 	rl := readline.NewInstance()
 	rl.SetPrompt("latte 🐶> ")
+
+	env := Env{
+		Functions: stdlibFunctions,
+		Variables: stdlibVariables,
+		Parent:    nil,
+	}
 
 	for {
 		func() {
@@ -33,7 +67,7 @@ func main() {
 
 			tokens := tokenize(line)
 			ast := parse(tokens)
-			val := eval(ast, stdlibFunctions, stdlibVariables)
+			val := eval(ast, env)
 			fmt.Println("$", val)
 		}()
 	}
@@ -342,16 +376,12 @@ func parseAtom(token string) any {
 	return Symbol(token)
 }
 
-func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]any) any {
+func eval(node any, env Env) any {
 	switch node := node.(type) {
 	case Symbol:
-		value, ok := variables[node]
+		value, ok := env.FindSymbol(node)
 		if !ok {
-			value, ok := functions[node]
-			if !ok {
-				panic("unknown symbol: " + string(node))
-			}
-			return value
+			panic("unknown symbol: " + string(node))
 		}
 		return value
 	case string, int, float64:
@@ -365,19 +395,31 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 
 		// special functions
 		switch symbol {
+		case "define":
+			if len(node) != 3 {
+				panic("define expects exactly 2 arguments")
+			}
+			name, ok := node[1].(Symbol)
+			if !ok {
+				panic("define argument 1 must be a symbol")
+			}
+			value := eval(node[2], env)
+			env.DefineVariable(name, value)
+			return value
+
 		case "when", "unless":
 			if len(node) < 2 {
 				panic(string(symbol) + " needs a condition")
 			}
 
-			cond := eval(node[1], functions, variables)
+			cond := eval(node[1], env)
 			if isTruthy(cond) == (string(symbol) == "unless") {
 				return nil
 			}
 
 			var lastEval any
 			for _, node := range node[2:] {
-				lastEval = eval(node, functions, variables)
+				lastEval = eval(node, env)
 			}
 
 			return lastEval
@@ -387,18 +429,18 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 				panic("if needs a condition")
 			}
 
-			cond := eval(node[1], functions, variables)
+			cond := eval(node[1], env)
 			if len(node) == 2 {
 				return nil
 			}
 
 			if isTruthy(cond) {
-				return eval(node[2], functions, variables)
+				return eval(node[2], env)
 			}
 
 			var lastEval any
 			for _, node := range node[3:] {
-				lastEval = eval(node, functions, variables)
+				lastEval = eval(node, env)
 			}
 
 			return lastEval
@@ -406,7 +448,7 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 		case "progn":
 			var lastEval any
 			for _, node := range node[1:] {
-				lastEval = eval(node, functions, variables)
+				lastEval = eval(node, env)
 			}
 
 			return lastEval
@@ -418,19 +460,20 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 			return cloneValue(node[1])
 		}
 
-		if _, ok := functions[symbol]; !ok {
+		function, ok := env.Functions[symbol]
+		if !ok {
 			panic("unknown function " + string(symbol))
 		}
 
 		args := []any{}
 		if len(node) > 1 {
 			for _, node := range node[1:] {
-				arg := eval(node, functions, variables)
+				arg := eval(node, env)
 				args = append(args, arg)
 			}
 		}
 
-		result := functions[symbol](args)
+		result := function(args)
 		return result
 	}
 

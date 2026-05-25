@@ -146,6 +146,11 @@ func TestLatte(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run("expr: "+test.source, func(t *testing.T) {
+			env := Env{
+				Functions: functions,
+				Variables: variables,
+			}
+
 			gotTokens := tokenize(test.source)
 			if !slices.Equal(test.wantTokens, gotTokens) {
 				t.Fatalf("\nTokens\n\nwant:\n%+#v\n\n\ngot:\n%+#v\n\n", test.wantTokens, gotTokens)
@@ -156,7 +161,7 @@ func TestLatte(t *testing.T) {
 				t.Fatalf("\nAST\n\nwant:\n%+#v (%T)\n\n\ngot:\n%+#v (%T)\n\n", test.wantAST, test.wantAST, gotAST, gotAST)
 			}
 
-			gotEval := eval(gotAST, functions, variables)
+			gotEval := eval(gotAST, env)
 			if !reflect.DeepEqual(gotEval, test.wantEval) {
 				t.Fatalf("\nEval\n\nwant:\n%+#v (%T)\n\n\ngot:\n%+#v (%T)\n\n", test.wantEval, test.wantEval, gotEval, gotEval)
 			}
@@ -317,6 +322,10 @@ func evalSource(t *testing.T, source string) any {
 
 	functions := maps.Clone(stdlibFunctions)
 	variables := maps.Clone(stdlibVariables)
+	env := Env{
+		Functions: functions,
+		Variables: variables,
+	}
 
-	return eval(parse(tokenize(source)), functions, variables)
+	return eval(parse(tokenize(source)), env)
 }
