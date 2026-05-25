@@ -230,17 +230,21 @@ func TestEvalSpecialFormsPanics(t *testing.T) {
 	}
 }
 
-func TestNilAndEmptyListEquivalence(t *testing.T) {
+func TestNilAndEmptyListSemantics(t *testing.T) {
 	tests := []struct {
 		source string
 		want   any
 	}{
 		{source: "nil", want: nil},
-		{source: "(quote ())", want: nil},
-		{source: "(list)", want: nil},
-		{source: "(= nil (quote ()))", want: true},
-		{source: "(= nil (list))", want: true},
+		{source: "(quote nil)", want: nil},
+		{source: "(quote ())", want: []any{}},
+		{source: "(list)", want: []any{}},
+		{source: "(= nil (quote ()))", want: false},
+		{source: "(= nil (list))", want: false},
+		{source: "(= (quote ()) (list))", want: true},
+		{source: "(not nil)", want: true},
 		{source: "(not (quote ()))", want: true},
+		{source: "(if nil 1 2)", want: 2.0},
 		{source: "(if (quote ()) 1 2)", want: 2.0},
 		{source: "(car (quote nil))", want: nil},
 	}
@@ -261,7 +265,7 @@ func TestEvalListFunctions(t *testing.T) {
 		want   any
 	}{
 		{source: "(list 1 2 3)", want: []any{1.0, 2.0, 3.0}},
-		{source: "(list)", want: nil},
+		{source: "(list)", want: []any{}},
 		{source: "(car (quote (1 2 3)))", want: 1.0},
 		{source: "(car (list 1 2 3))", want: 1.0},
 		{source: "(car nil)", want: nil},

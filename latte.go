@@ -93,9 +93,6 @@ var stdlibFunctions = map[Symbol]func(args []any) any{
 		return lispCompare(args, "<=")
 	},
 	"list": func(args []any) any {
-		if len(args) == 0 {
-			return nil
-		}
 		return args
 	},
 	"car": func(args []any) any {
@@ -103,7 +100,7 @@ var stdlibFunctions = map[Symbol]func(args []any) any{
 			panic("car expects exactly one argument")
 		}
 
-		if isNil(args[0]) {
+		if args[0] == nil || isEmptyList(args[0]) {
 			return nil
 		}
 
@@ -119,7 +116,7 @@ var stdlibFunctions = map[Symbol]func(args []any) any{
 			panic("cdr expects exactly one argument")
 		}
 
-		if isNil(args[0]) {
+		if args[0] == nil || isEmptyList(args[0]) {
 			return nil
 		}
 
@@ -161,9 +158,6 @@ func lispEqual(args []any) any {
 	}
 	val := args[0]
 	for _, arg := range args {
-		if isNil(val) && isNil(arg) {
-			continue
-		}
 		if !reflect.DeepEqual(val, arg) {
 			return false
 		}
@@ -444,16 +438,13 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 }
 
 func isTruthy(val any) bool {
-	if isNil(val) {
+	if val == nil || isEmptyList(val) {
 		return false
 	}
 	return !reflect.ValueOf(val).IsZero()
 }
 
-func isNil(val any) bool {
-	if val == nil {
-		return true
-	}
+func isEmptyList(val any) bool {
 	list, ok := val.([]any)
 	return ok && len(list) == 0
 }
@@ -466,9 +457,6 @@ func cloneValue(val any) any {
 		}
 		return val
 	case []any:
-		if len(val) == 0 {
-			return nil
-		}
 		cloned := make([]any, len(val))
 		for i, item := range val {
 			cloned[i] = cloneValue(item)
