@@ -307,15 +307,27 @@ func tokenize(source string) []string {
 	}
 
 	inString := false
+	inComment := false
 	prevRune := rune(0)
 
 	parens := 0
 
 	for _, r := range source {
+		if inComment {
+			if r == '\n' {
+				inComment = false
+			}
+			continue
+		}
 		if r == '"' && prevRune != '\\' {
 			inString = !inString
 		}
 		prevRune = r
+		if !inString && r == ';' {
+			flushCurrent()
+			inComment = true
+			continue
+		}
 		if !inString && unicode.IsSpace(r) {
 			flushCurrent()
 			continue

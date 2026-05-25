@@ -45,6 +45,12 @@ func TestLatte(t *testing.T) {
 			wantEval:   "text with spaces",
 		},
 		{
+			source:     `"text; with semicolon"`,
+			wantTokens: []string{`"text; with semicolon"`},
+			wantAST:    "text; with semicolon",
+			wantEval:   "text; with semicolon",
+		},
+		{
 			source:     "123",
 			wantTokens: []string{"123"},
 			wantAST:    123.0,
@@ -78,6 +84,12 @@ func TestLatte(t *testing.T) {
 			wantTokens: []string{"(", "+", "1", "(", "+", "0", "1", ")", ")"},
 			wantAST:    []any{symbol("+"), 1.0, []any{symbol("+"), 0.0, 1.0}},
 			wantEval:   2.0,
+		},
+		{
+			source:     "; ignore me\n(+ 1 2) ; ignore me too",
+			wantTokens: []string{"(", "+", "1", "2", ")"},
+			wantAST:    []any{symbol("+"), 1.0, 2.0},
+			wantEval:   3.0,
 		},
 		{
 			source:     "(* 5.5 3)",
