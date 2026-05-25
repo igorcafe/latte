@@ -98,6 +98,42 @@ var stdlibFunctions = map[Symbol]func(args []any) any{
 		}
 		return args
 	},
+	"car": func(args []any) any {
+		if len(args) != 1 {
+			panic("car expects exactly one argument")
+		}
+
+		if isNil(args[0]) {
+			return nil
+		}
+
+		list, ok := args[0].([]any)
+		if !ok {
+			panic("car expects a list")
+		}
+
+		return list[0]
+	},
+	"cdr": func(args []any) any {
+		if len(args) != 1 {
+			panic("cdr expects exactly one argument")
+		}
+
+		if isNil(args[0]) {
+			return nil
+		}
+
+		list, ok := args[0].([]any)
+		if !ok {
+			panic("cdr expects a list")
+		}
+
+		if len(list) <= 1 {
+			return nil
+		}
+
+		return list[1:]
+	},
 	"print": func(args []any) any {
 		fmt.Print(args...)
 		return nil

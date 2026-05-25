@@ -237,6 +237,7 @@ func TestNilAndEmptyListEquivalence(t *testing.T) {
 		{source: "(= nil (list))", want: true},
 		{source: "(not (quote ()))", want: true},
 		{source: "(if (quote ()) 1 2)", want: 2.0},
+		{source: "(car (quote nil))", want: nil},
 	}
 
 	for _, test := range tests {
@@ -245,6 +246,59 @@ func TestNilAndEmptyListEquivalence(t *testing.T) {
 			if !reflect.DeepEqual(got, test.want) {
 				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
 			}
+		})
+	}
+}
+
+func TestEvalListFunctions(t *testing.T) {
+	tests := []struct {
+		source string
+		want   any
+	}{
+		{source: "(list 1 2 3)", want: []any{1.0, 2.0, 3.0}},
+		{source: "(list)", want: nil},
+		{source: "(car (quote (1 2 3)))", want: 1.0},
+		{source: "(car (list 1 2 3))", want: 1.0},
+		{source: "(car nil)", want: nil},
+		{source: "(car (quote nil))", want: nil},
+		{source: "(car (quote ()))", want: nil},
+		{source: "(cdr (quote (1 2 3)))", want: []any{2.0, 3.0}},
+		{source: "(cdr (list 1 2 3))", want: []any{2.0, 3.0}},
+		{source: "(cdr (quote (1)))", want: nil},
+		{source: "(cdr nil)", want: nil},
+		{source: "(cdr (quote nil))", want: nil},
+		{source: "(cdr (quote ()))", want: nil},
+	}
+
+	for _, test := range tests {
+		t.Run(test.source, func(t *testing.T) {
+			got := evalSource(t, test.source)
+			if !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
+			}
+		})
+	}
+}
+
+func TestEvalListFunctionsPanics(t *testing.T) {
+	tests := []string{
+		"(car)",
+		"(car 1)",
+		"(car (quote (1 2)) 3)",
+		"(cdr)",
+		"(cdr 1)",
+		"(cdr (quote (1 2)) 3)",
+	}
+
+	for _, source := range tests {
+		t.Run(source, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Fatal("expected panic")
+				}
+			}()
+
+			evalSource(t, source)
 		})
 	}
 }
