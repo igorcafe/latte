@@ -33,7 +33,7 @@ func main() {
 	env := latte.NewEnv()
 
 	env.Define("name", "Latte")
-	env.RegisterGoFunc("shout", func(args []any) any {
+	env.RegisterFunction("shout", func(args []any) any {
 		return fmt.Sprintf("%s!", args[0])
 	})
 
