@@ -668,6 +668,25 @@ func eval(node any, env *Env) any {
 				panic("quote expects exactly one argument")
 			}
 			return cloneValue(node[1])
+
+		case "and":
+			var result any = true
+			for _, node := range node[1:] {
+				result = eval(node, env)
+				if !isTruthy(result) {
+					return result
+				}
+			}
+			return result
+
+		case "or":
+			for _, node := range node[1:] {
+				result := eval(node, env)
+				if isTruthy(result) {
+					return result
+				}
+			}
+			return nil
 		}
 
 		function, ok := env.functions[operator]
