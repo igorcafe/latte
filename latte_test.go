@@ -176,9 +176,13 @@ func TestEvalSpecialForms(t *testing.T) {
 		{source: `(if "" 1 2)`, want: 2.0},
 		{source: "(if true 1 unknown-symbol)", want: 1.0},
 		{source: "(if false unknown-symbol 2)", want: 2.0},
+		{source: "(if true)", want: nil},
 		{source: "(when true 1 2)", want: 2.0},
 		{source: "(when false unknown-symbol)", want: nil},
 		{source: "(when nil unknown-symbol)", want: nil},
+		{source: "(unless false 1 2)", want: 2.0},
+		{source: "(unless nil 1 2)", want: 2.0},
+		{source: "(unless true unknown-symbol)", want: nil},
 		{source: "(progn)", want: nil},
 		{source: "(progn 1 2 3)", want: 3.0},
 	}
@@ -196,7 +200,9 @@ func TestEvalSpecialForms(t *testing.T) {
 func TestEvalSpecialFormsPanics(t *testing.T) {
 	tests := []string{
 		"(if)",
+		"(if unknown-symbol)",
 		"(when)",
+		"(unless)",
 	}
 
 	for _, source := range tests {

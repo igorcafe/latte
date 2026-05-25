@@ -319,7 +319,7 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 		switch symbol {
 		case "when", "unless":
 			if len(node) < 2 {
-				panic(string(symbol) + "needs a condition")
+				panic(string(symbol) + " needs a condition")
 			}
 
 			cond := eval(node[1], functions, variables)
@@ -340,6 +340,10 @@ func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]a
 			}
 
 			cond := eval(node[1], functions, variables)
+			if len(node) == 2 {
+				return nil
+			}
+
 			if isTruthy(cond) {
 				return eval(node[2], functions, variables)
 			}
