@@ -171,8 +171,9 @@ func TestLatte(t *testing.T) {
 
 func TestEvalSpecialForms(t *testing.T) {
 	tests := []struct {
-		source string
-		want   any
+		source    string
+		want      any
+		wantPanic bool
 	}{
 		{source: "(if true 1 2)", want: 1.0},
 		{source: "(if false 1 2)", want: 2.0},
@@ -200,37 +201,27 @@ func TestEvalSpecialForms(t *testing.T) {
 		{source: "'(1 2 3)", want: []any{1.0, 2.0, 3.0}},
 		{source: "'(+ 1 unknown-symbol)", want: []any{Symbol("+"), 1.0, Symbol("unknown-symbol")}},
 		{source: "(list 'hello '(1 2))", want: []any{Symbol("hello"), []any{1.0, 2.0}}},
+		{source: "(if)", wantPanic: true},
+		{source: "(if unknown-symbol)", wantPanic: true},
+		{source: "(when)", wantPanic: true},
+		{source: "(unless)", wantPanic: true},
+		{source: "(quote)", wantPanic: true},
+		{source: "(quote 1 2)", wantPanic: true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.source, func(t *testing.T) {
+			defer func() {
+				gotPanic := recover() != nil
+				if gotPanic != test.wantPanic {
+					t.Fatalf("panic: want %v, got %v", test.wantPanic, gotPanic)
+				}
+			}()
+
 			got := evalSource(t, test.source)
 			if !reflect.DeepEqual(got, test.want) {
 				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
 			}
-		})
-	}
-}
-
-func TestEvalSpecialFormsPanics(t *testing.T) {
-	tests := []string{
-		"(if)",
-		"(if unknown-symbol)",
-		"(when)",
-		"(unless)",
-		"(quote)",
-		"(quote 1 2)",
-	}
-
-	for _, source := range tests {
-		t.Run(source, func(t *testing.T) {
-			defer func() {
-				if recover() == nil {
-					t.Fatal("expected panic")
-				}
-			}()
-
-			evalSource(t, source)
 		})
 	}
 }
@@ -266,8 +257,9 @@ func TestNilAndEmptyListSemantics(t *testing.T) {
 
 func TestEvalListFunctions(t *testing.T) {
 	tests := []struct {
-		source string
-		want   any
+		source    string
+		want      any
+		wantPanic bool
 	}{
 		{source: "(list 1 2 3)", want: []any{1.0, 2.0, 3.0}},
 		{source: "(list)", want: []any{}},
@@ -282,37 +274,27 @@ func TestEvalListFunctions(t *testing.T) {
 		{source: "(cdr nil)", want: nil},
 		{source: "(cdr (quote nil))", want: nil},
 		{source: "(cdr (quote ()))", want: nil},
+		{source: "(car)", wantPanic: true},
+		{source: "(car 1)", wantPanic: true},
+		{source: "(car (quote (1 2)) 3)", wantPanic: true},
+		{source: "(cdr)", wantPanic: true},
+		{source: "(cdr 1)", wantPanic: true},
+		{source: "(cdr (quote (1 2)) 3)", wantPanic: true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.source, func(t *testing.T) {
+			defer func() {
+				gotPanic := recover() != nil
+				if gotPanic != test.wantPanic {
+					t.Fatalf("panic: want %v, got %v", test.wantPanic, gotPanic)
+				}
+			}()
+
 			got := evalSource(t, test.source)
 			if !reflect.DeepEqual(got, test.want) {
 				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
 			}
-		})
-	}
-}
-
-func TestEvalListFunctionsPanics(t *testing.T) {
-	tests := []string{
-		"(car)",
-		"(car 1)",
-		"(car (quote (1 2)) 3)",
-		"(cdr)",
-		"(cdr 1)",
-		"(cdr (quote (1 2)) 3)",
-	}
-
-	for _, source := range tests {
-		t.Run(source, func(t *testing.T) {
-			defer func() {
-				if recover() == nil {
-					t.Fatal("expected panic")
-				}
-			}()
-
-			evalSource(t, source)
 		})
 	}
 }
