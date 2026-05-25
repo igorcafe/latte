@@ -102,6 +102,8 @@ func tokenize(source string) []string {
 	inString := false
 	prevRune := rune(0)
 
+	parens := 0
+
 	for _, r := range source {
 		if r == '"' && prevRune != '\\' {
 			inString = !inString
@@ -112,6 +114,11 @@ func tokenize(source string) []string {
 			continue
 		}
 		if slices.Contains([]rune{'(', ')'}, r) {
+			if r == '(' {
+				parens++
+			} else {
+				parens--
+			}
 			flushCurrent()
 			tokens = append(tokens, string(r))
 			continue
@@ -121,6 +128,10 @@ func tokenize(source string) []string {
 
 	if current != "" {
 		tokens = append(tokens, current)
+	}
+
+	if parens != 0 {
+		panic("unbalanced parenthesis")
 	}
 
 	return tokens
