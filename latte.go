@@ -195,6 +195,60 @@ var stdlibFunctions = map[symbol]func(args []any) any{
 
 		return float64(len(list))
 	},
+	"nil?": func(args []any) any {
+		if len(args) != 1 {
+			panic("nil? expects exactly one argument")
+		}
+
+		return args[0] == nil
+	},
+	"list?": func(args []any) any {
+		if len(args) != 1 {
+			panic("list? expects exactly one argument")
+		}
+
+		_, ok := args[0].([]any)
+		return ok
+	},
+	"empty?": func(args []any) any {
+		if len(args) != 1 {
+			panic("empty? expects exactly one argument")
+		}
+
+		return isEmptyList(args[0])
+	},
+	"number?": func(args []any) any {
+		if len(args) != 1 {
+			panic("number? expects exactly one argument")
+		}
+
+		_, ok := args[0].(float64)
+		return ok
+	},
+	"string?": func(args []any) any {
+		if len(args) != 1 {
+			panic("string? expects exactly one argument")
+		}
+
+		_, ok := args[0].(string)
+		return ok
+	},
+	"symbol?": func(args []any) any {
+		if len(args) != 1 {
+			panic("symbol? expects exactly one argument")
+		}
+
+		_, ok := args[0].(symbol)
+		return ok
+	},
+	"bool?": func(args []any) any {
+		if len(args) != 1 {
+			panic("bool? expects exactly one argument")
+		}
+
+		_, ok := args[0].(bool)
+		return ok
+	},
 	"print": func(args []any) any {
 		fmt.Print(args...)
 		return nil

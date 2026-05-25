@@ -362,6 +362,56 @@ func TestEvalLet(t *testing.T) {
 	}
 }
 
+func TestEvalPredicates(t *testing.T) {
+	tests := []struct {
+		source  string
+		want    any
+		wantErr bool
+	}{
+		{source: "(nil? nil)", want: true},
+		{source: "(nil? '())", want: false},
+		{source: "(nil? false)", want: false},
+		{source: "(list? '())", want: true},
+		{source: "(list? '(1))", want: true},
+		{source: "(list? nil)", want: false},
+		{source: "(empty? '())", want: true},
+		{source: "(empty? nil)", want: false},
+		{source: "(empty? '(1))", want: false},
+		{source: "(number? 1)", want: true},
+		{source: `(number? "1")`, want: false},
+		{source: `(string? "x")`, want: true},
+		{source: "(string? 'x)", want: false},
+		{source: "(symbol? 'x)", want: true},
+		{source: `(symbol? "x")`, want: false},
+		{source: "(bool? true)", want: true},
+		{source: "(bool? false)", want: true},
+		{source: "(bool? nil)", want: false},
+		{source: "(nil?)", wantErr: true},
+		{source: "(list? '() '())", wantErr: true},
+		{source: "(empty?)", wantErr: true},
+		{source: "(number?)", wantErr: true},
+		{source: "(string?)", wantErr: true},
+		{source: "(symbol?)", wantErr: true},
+		{source: "(bool?)", wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.source, func(t *testing.T) {
+			got, err := testEnv().Eval(test.source)
+			gotErr := err != nil
+			if gotErr != test.wantErr {
+				t.Fatalf("error: want %v, got %v (%v)", test.wantErr, gotErr, err)
+			}
+			if test.wantErr {
+				return
+			}
+			if !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
+			}
+		})
+	}
+}
+
 func TestParseProgram(t *testing.T) {
 	tests := []struct {
 		source string
