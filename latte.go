@@ -92,6 +92,9 @@ var stdlibFunctions = map[Symbol]func(args []any) any{
 	"<=": func(args []any) any {
 		return lispCompare(args, "<=")
 	},
+	"list": func(args []any) any {
+		return args
+	},
 	"print": func(args []any) any {
 		fmt.Print(args...)
 		return nil
