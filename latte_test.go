@@ -362,6 +362,46 @@ func TestEvalLet(t *testing.T) {
 	}
 }
 
+func TestEvalDefineFunction(t *testing.T) {
+	tests := []struct {
+		source  string
+		want    any
+		wantErr bool
+	}{
+		{source: "(progn (define (add1 x) (+ x 1)) (add1 2))", want: 3.0},
+		{source: "(progn (define (add x y) (+ x y)) (add 2 3))", want: 5.0},
+		{source: "(progn (define (answer) 42) (answer))", want: 42.0},
+		{source: "(progn (define (f x) (+ x 1) (* x 2)) (f 3))", want: 6.0},
+		{source: "(progn (define x 10) (define (add-x y) (+ x y)) (add-x 2))", want: 12.0},
+		{source: "(progn (define (first xs) (car xs)) (first '(1 2 3)))", want: 1.0},
+		{source: "(progn (define (noop)) (noop))", want: nil},
+		{source: "(define)", wantErr: true},
+		{source: "(define x)", wantErr: true},
+		{source: "(define x 1 2)", wantErr: true},
+		{source: "(define ())", wantErr: true},
+		{source: "(define (1 x) x)", wantErr: true},
+		{source: "(define (f 1) 1)", wantErr: true},
+		{source: "(progn (define (f x) x) (f))", wantErr: true},
+		{source: "(progn (define (f x) x) (f 1 2))", wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.source, func(t *testing.T) {
+			got, err := testEnv().Eval(test.source)
+			gotErr := err != nil
+			if gotErr != test.wantErr {
+				t.Fatalf("error: want %v, got %v (%v)", test.wantErr, gotErr, err)
+			}
+			if test.wantErr {
+				return
+			}
+			if !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("want %#v (%T), got %#v (%T)", test.want, test.want, got, got)
+			}
+		})
+	}
+}
+
 func TestEvalPredicates(t *testing.T) {
 	tests := []struct {
 		source  string

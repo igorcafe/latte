@@ -560,16 +560,62 @@ func eval(node any, env *Env) any {
 			return lastEval
 
 		case "define":
-			if len(node) != 3 {
-				panic("define expects exactly 2 arguments")
+			if len(node) < 2 {
+				panic("define expects a target")
 			}
-			name, ok := node[1].(symbol)
-			if !ok {
-				panic("define argument 1 must be a symbol")
+
+			switch target := node[1].(type) {
+			case symbol:
+				if len(node) != 3 {
+					panic("define variable expects exactly one value")
+				}
+				value := eval(node[2], env)
+				env.defineVariable(target, value)
+				return value
+
+			case []any:
+				if len(target) == 0 {
+					panic("define function needs a name")
+				}
+
+				name, ok := target[0].(symbol)
+				if !ok {
+					panic("define function name must be a symbol")
+				}
+
+				params := []symbol{}
+				for _, rawParam := range target[1:] {
+					param, ok := rawParam.(symbol)
+					if !ok {
+						panic("define function params must be symbols")
+					}
+					params = append(params, param)
+				}
+
+				body := node[2:]
+				closureEnv := env
+				env.functions[name] = func(args []any) any {
+					if len(args) != len(params) {
+						panic("function " + string(name) + " called with wrong number of arguments")
+					}
+
+					scope := closureEnv.childScope()
+					for i, param := range params {
+						scope.defineVariable(param, args[i])
+					}
+
+					var result any
+					for _, expr := range body {
+						result = eval(expr, scope)
+					}
+					return result
+				}
+
+				return name
+
+			default:
+				panic("define target must be a symbol or function signature")
 			}
-			value := eval(node[2], env)
-			env.defineVariable(name, value)
-			return value
 
 		case "when", "unless":
 			if len(node) < 2 {
