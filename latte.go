@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -39,9 +40,9 @@ func main() {
 }
 
 var stdlibVariables = map[Symbol]any{
-	"t":   true,
-	"f":   false,
-	"nil": nil,
+	"true":  true,
+	"false": false,
+	"nil":   nil,
 }
 
 var stdlibFunctions = map[Symbol]func(args []any) any{
@@ -79,6 +80,18 @@ var stdlibFunctions = map[Symbol]func(args []any) any{
 	"!=": func(args []any) any {
 		return !lispEqual(args).(bool)
 	},
+	">": func(args []any) any {
+		return lispCompare(args, ">")
+	},
+	">=": func(args []any) any {
+		return lispCompare(args, ">=")
+	},
+	"<": func(args []any) any {
+		return lispCompare(args, "<")
+	},
+	"<=": func(args []any) any {
+		return lispCompare(args, "<=")
+	},
 	"print": func(args []any) any {
 		fmt.Print(args...)
 		return nil
@@ -93,11 +106,6 @@ var stdlibFunctions = map[Symbol]func(args []any) any{
 		}
 		if _, ok := args[0].(string); !ok {
 			panic("printf: invalid argument type for format string")
-		}
-
-		if len(args) == 1 {
-			fmt.Printf(args[0].(string))
-			return nil
 		}
 
 		fmt.Printf(args[0].(string), args[1:]...)
@@ -116,6 +124,48 @@ func lispEqual(args []any) any {
 		}
 	}
 	return true
+}
+
+func lispCompare(args []any, op string) any {
+	if len(args) < 2 {
+		panic(op + ": expected at least 2 arguments")
+	}
+
+	for i := range args[:len(args)-1] {
+		a := args[i]
+		b := args[i+1]
+		if reflect.TypeOf(a) != reflect.TypeOf(b) {
+			panic("comparison of different types")
+		}
+		switch a := a.(type) {
+		case string:
+			if !compareOrdered(a, b.(string), op) {
+				return false
+			}
+		case float64:
+			if !compareOrdered(a, b.(float64), op) {
+				return false
+			}
+		default:
+			panic("type is not comparable")
+		}
+	}
+	return true
+}
+
+func compareOrdered[T cmp.Ordered](a, b T, op string) bool {
+	switch op {
+	case ">":
+		return a > b
+	case ">=":
+		return a >= b
+	case "<":
+		return a < b
+	case "<=":
+		return a <= b
+	default:
+		panic("unknown comparison operator: " + op)
+	}
 }
 
 func arithmeticOperation(args []any, op func(float64, float64) float64) float64 {
