@@ -283,6 +283,14 @@ func TestEvalListFunctions(t *testing.T) {
 		{source: "(length '(1 2 3))", want: 3.0},
 		{source: "(length '())", want: 0.0},
 		{source: "(length nil)", want: 0.0},
+		{source: "(append)", want: []any{}},
+		{source: "(append '(1 2) '(3 4))", want: []any{1.0, 2.0, 3.0, 4.0}},
+		{source: "(append '() '(1))", want: []any{1.0}},
+		{source: "(append nil '(1))", want: []any{1.0}},
+		{source: "(append '(1) nil)", want: []any{1.0}},
+		{source: "(progn (define xs '(1 2)) (append xs '(3)) xs)", want: []any{1.0, 2.0}},
+		{source: `(append "a" "b" "c")`, want: "abc"},
+		{source: `(append nil "a")`, want: "a"},
 		{source: "(car)", wantErr: true},
 		{source: "(car 1)", wantErr: true},
 		{source: "(car (quote (1 2)) 3)", wantErr: true},
@@ -300,6 +308,9 @@ func TestEvalListFunctions(t *testing.T) {
 		{source: "(length)", wantErr: true},
 		{source: "(length 1)", wantErr: true},
 		{source: "(length '(1) '(2))", wantErr: true},
+		{source: "(append 1)", wantErr: true},
+		{source: "(append '(1) 2)", wantErr: true},
+		{source: `(append '(1) "a")`, wantErr: true},
 	}
 
 	for _, test := range tests {

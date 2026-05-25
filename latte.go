@@ -195,6 +195,9 @@ var stdlibFunctions = map[symbol]func(args []any) any{
 
 		return float64(len(list))
 	},
+	"append": func(args []any) any {
+		return lispConcat(args, []any{})
+	},
 	"nil?": func(args []any) any {
 		if len(args) != 1 {
 			panic("nil? expects exactly one argument")
@@ -308,6 +311,47 @@ func lispCompare(args []any, op string) any {
 		}
 	}
 	return true
+}
+
+func lispConcat(args []any, empty any) any {
+	var listResult []any
+	var stringResult strings.Builder
+	mode := ""
+
+	for _, arg := range args {
+		if arg == nil {
+			continue
+		}
+
+		switch arg := arg.(type) {
+		case []any:
+			if mode == "" {
+				mode = "list"
+			}
+			if mode != "list" {
+				panic("concat cannot mix strings and lists")
+			}
+			listResult = append(listResult, arg...)
+		case string:
+			if mode == "" {
+				mode = "string"
+			}
+			if mode != "string" {
+				panic("concat cannot mix strings and lists")
+			}
+			stringResult.WriteString(arg)
+		default:
+			panic("concat expects strings or lists")
+		}
+	}
+
+	if mode == "string" {
+		return stringResult.String()
+	}
+	if mode == "list" {
+		return listResult
+	}
+	return empty
 }
 
 func compareOrdered[T cmp.Ordered](a, b T, op string) bool {
