@@ -190,6 +190,11 @@ func TestEvalSpecialForms(t *testing.T) {
 		{source: "(quote (1 2 3))", want: []any{1.0, 2.0, 3.0}},
 		{source: "(quote (+ 1 unknown-symbol))", want: []any{Symbol("+"), 1.0, Symbol("unknown-symbol")}},
 		{source: "(quote (1 (2 3)))", want: []any{1.0, []any{2.0, 3.0}}},
+		{source: "'hello", want: Symbol("hello")},
+		{source: "'nil", want: nil},
+		{source: "'(1 2 3)", want: []any{1.0, 2.0, 3.0}},
+		{source: "'(+ 1 unknown-symbol)", want: []any{Symbol("+"), 1.0, Symbol("unknown-symbol")}},
+		{source: "(list 'hello '(1 2))", want: []any{Symbol("hello"), []any{1.0, 2.0}}},
 	}
 
 	for _, test := range tests {

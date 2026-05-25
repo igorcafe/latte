@@ -262,7 +262,12 @@ func tokenize(source string) []string {
 			flushCurrent()
 			continue
 		}
-		if slices.Contains([]rune{'(', ')'}, r) {
+		if !inString && r == '\'' {
+			flushCurrent()
+			tokens = append(tokens, string(r))
+			continue
+		}
+		if !inString && slices.Contains([]rune{'(', ')'}, r) {
 			if r == '(' {
 				parens++
 			} else {
@@ -291,52 +296,56 @@ func parse(tokens []string) any {
 		return nil
 	}
 
-	if len(tokens) == 1 {
-		var value any
-		if err := json.Unmarshal([]byte(tokens[0]), &value); err == nil {
-			switch value.(type) {
-			case string, int, float64:
-				// avoid converting "true", "null" and things like that
-				return value
+	pos := 0
+	expr := parseExpr(tokens, &pos)
+	if pos != len(tokens) {
+		panic("TODO: syntax error, unexpected tokens")
+	}
+
+	return expr
+
+}
+
+func parseExpr(tokens []string, pos *int) any {
+	if *pos >= len(tokens) {
+		panic("TODO: syntax error, unexpected end of input")
+	}
+
+	token := tokens[*pos]
+	*pos++
+
+	switch token {
+	case "'":
+		return []any{Symbol("quote"), parseExpr(tokens, pos)}
+	case "(":
+		tree := []any{}
+		for {
+			if *pos >= len(tokens) {
+				panic("TODO: syntax error, unbalanced parenthesis")
 			}
-		}
-		return Symbol(tokens[0])
-	}
-
-	if tokens[0] != "(" || tokens[len(tokens)-1] != ")" {
-		panic("TODO: syntax error, unbalanced parenthesis")
-	}
-
-	tokens = tokens[1 : len(tokens)-1]
-
-	tree := []any{}
-	stack := [][]any{}
-
-	for _, token := range tokens {
-		if token == "(" {
-			next := []any{}
-			tree = append(tree, next)
-			stack = append(stack, tree)
-			tree = next
-
-			continue
-		}
-		if token == ")" {
-			if len(stack) == 0 {
-				panic("TODO: error unbalanced parenthesis")
+			if tokens[*pos] == ")" {
+				*pos++
+				return tree
 			}
-
-			curr := tree
-			tree = stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
-			tree[len(tree)-1] = curr
-
-			continue
+			tree = append(tree, parseExpr(tokens, pos))
 		}
-		tree = append(tree, parse([]string{token}))
+	case ")":
+		panic("TODO: syntax error, unexpected closing parenthesis")
+	default:
+		return parseAtom(token)
 	}
+}
 
-	return tree
+func parseAtom(token string) any {
+	var value any
+	if err := json.Unmarshal([]byte(token), &value); err == nil {
+		switch value.(type) {
+		case string, int, float64:
+			// avoid converting "true", "null" and things like that
+			return value
+		}
+	}
+	return Symbol(token)
 }
 
 func eval(node any, functions map[Symbol]func([]any) any, variables map[Symbol]any) any {
